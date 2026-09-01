@@ -38,13 +38,14 @@ Migration of the FYP "Frankenstein" corpus into one config-driven package.
 
 ## Order of work
 
-1. **Primitives + tests** — `nn/`, `buffers/`, `advantage.py`, `config.py`, `seeding.py`,
-   `envs.py`. Tests: actor log-prob vs `torch.distributions` analytic; GAE vs hand-computed;
-   MC returns vs closed form; buffer shapes/dtypes.
-2. **SAC vertical slice** — `agents/sac.py` + `train.py` + `configs/sac_pendulum.yaml`;
-   must reach ~-200 on `Pendulum-v1` in <300 episodes locally. Smoke test in CI on a
-   tiny budget.
-3. **TD3, PPO** references + configs; smoke tests.
+1. ~~**Primitives + tests**~~ ✅ `nn/`, `buffers/`, `advantage.py`, `config.py`, `seeding.py`,
+   `envs.py`. 27 tests green (actor log-prob vs analytic; GAE vs hand-computed; MC returns;
+   buffer shapes; config load/override; agent smoke + checkpoint round-trip).
+2. ~~**SAC vertical slice**~~ ✅ `agents/sac.py` + `train.py` + `configs/sac_pendulum.yaml`.
+   Pendulum-v1, seed 0, 60k steps CPU (~30 min): turned around by ~ep 35, **eval
+   (deterministic) settled ~-80**, best episode -0.4. Reference SAC confirmed correct.
+   TODO: add a tiny-budget CI smoke.
+3. **TD3, PPO** references + configs; smoke tests. (TD3 code written, not yet run on a real env.)
 4. **`FrankensteinAgent`** — compose from parts; reproduce `m1_hybrid` == SAC-ish; add the
    5 advantage estimators as configs; verify `[[SAC equals M1 under a controlled seed]]`.
 5. **PBS runner** + `sweep.py`; one BipedalWalker sweep end-to-end on Gadi.

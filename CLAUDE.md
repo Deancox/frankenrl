@@ -19,8 +19,10 @@ shared agents/commands/hooks load from `~/.claude/CLAUDE.md`.
   local + PBS runners; per-variant YAML configs; tests; a results-analysis layer.
 - **Out of scope:** new environments/physics; sim-to-real; the FYP report prose (lives in
   `fyp-corpus-raw/FYP Report/`); rewriting history - legacy code stays read-only reference.
-- **Status (2026-09-01):** scaffolded. Next: land the reusable primitives + a correct SAC
-  vertical slice on a fast env, then migrate variants.
+- **Status (2026-09-01):** scaffold + primitives done (27 tests green). **SAC vertical slice
+  verified** — Pendulum-v1 seed 0, eval settled ~-80 in 60k CPU steps. Next: PPO reference,
+  then `FrankensteinAgent` + the 5 advantage estimators, then verify `m1 ≈ SAC` under a
+  matched seed, then a Gadi BipedalWalker sweep.
 
 ## Source material (read-only reference)
 
