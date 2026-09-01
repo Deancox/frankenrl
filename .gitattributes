@@ -1,0 +1,5 @@
+# Keep LF everywhere — code runs on Gadi (Linux); CRLF breaks .sh/.pbs.
+* text=auto eol=lf
+*.png binary
+*.pt binary
+*.pth binary
