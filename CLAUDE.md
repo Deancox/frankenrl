@@ -26,12 +26,14 @@ shared agents/commands/hooks load from `~/.claude/CLAUDE.md`.
 
 ## Source material (read-only reference)
 
-- **Legacy code:** `C:\Users\deanc\fyp-corpus-raw\Python\Frankensteins\` (Phase1-7, Standard,
-  LayerNormP2-6, NewStandard, FailPhase3) and `...\Python\ActorCritic\Individual\Agents.py`
-  (2429-line monolith). `...\fyp-corpus-raw\Frankensteins\` is a trimmed copy of Phase1-7 + Standard.
-- **Results:** `...\Python\FYP_Results\` and `...\Python\MasterComp\` - `*_rewards.csv` per
+All under **`../../fyp-corpus-raw/`** (i.e. `Garage/fyp-corpus-raw/`):
+
+- **Legacy code:** `fyp-corpus-raw/Python/Frankensteins/` (Phase1-7, Standard, LayerNormP2-6,
+  NewStandard, FailPhase3) and `Python/ActorCritic/Individual/Agents.py` (2429-line monolith).
+  `fyp-corpus-raw/Frankensteins/` is a trimmed copy of Phase1-7 + Standard.
+- **Results:** `Python/FYP_Results/` and `Python/MasterComp/` - `*_rewards.csv` per
   `<env>/<label>`, one row per episode.
-- **Report:** `...\fyp-corpus-raw\FYP Report\Dean_Cox_FYP_A.pdf` (Part A). Ch.6 future-work =
+- **Report:** `fyp-corpus-raw/FYP Report/Dean_Cox_FYP_A.pdf` (Part A). Ch.6 future-work =
   the brief for the hybrids.
 - **Theory + findings:** the vault RL wiki - `..\..\DeanVault\INDEX.md` -> *Reinforcement
   learning*. Start at `[[Frankenstein agents]]`, `[[SAC]]`, `[[TD3]]`, `[[GAE]]`,
