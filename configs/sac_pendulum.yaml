@@ -1,0 +1,25 @@
+# Fast local sanity slice: SAC should reach ~ -200 MA on Pendulum-v1 well under 300 episodes.
+label: sac_pendulum
+seed: 0
+device: auto
+out_dir: runs
+
+env:
+  id: Pendulum-v1
+  action_scale: 2.0        # Pendulum torque is in [-2, 2]
+
+agent:
+  kind: sac
+  lr: 0.0003
+  batch_size: 256
+  warmup_steps: 1000
+  autotune_entropy: true
+  net:
+    hidden: [256, 256]
+    layernorm: false
+
+train:
+  total_steps: 60000
+  eval_every_steps: 5000
+  eval_episodes: 5
+  checkpoint_every_steps: 20000

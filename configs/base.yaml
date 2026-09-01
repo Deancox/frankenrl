@@ -1,0 +1,38 @@
+# Defaults shared by every run. Concrete configs override `label`, `env`, `agent.kind`, etc.
+label: base
+seed: 0
+device: auto
+out_dir: runs
+
+env:
+  id: Pendulum-v1
+  action_scale: 1.0
+  normalize_obs: false
+
+agent:
+  kind: sac
+  gamma: 0.99
+  tau: 0.005
+  lr: 0.0003
+  batch_size: 256
+  buffer_capacity: 1000000
+  warmup_steps: 1000
+  updates_per_step: 1
+  entropy_coef: 0.2
+  autotune_entropy: true
+  net:
+    hidden: [256, 256]
+    activation: mish
+    layernorm: false
+  advantage:
+    name: gae
+    gamma: 0.99
+    gae_lambda: 0.95
+    normalize: true
+
+train:
+  total_steps: 300000
+  eval_every_steps: 10000
+  eval_episodes: 5
+  log_every_steps: 1000
+  checkpoint_every_steps: 50000

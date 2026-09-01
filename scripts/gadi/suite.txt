@@ -1,0 +1,7 @@
+# One run per line: <config-path> [extra -o overrides]
+# Job array index maps to line number (0-based, skipping blanks/comments).
+# Submit e.g.:  SEED=0 qsub -J 0-3 scripts/gadi/train_suite.pbs
+configs/sac_bipedal.yaml
+configs/td3_bipedal.yaml
+configs/m1_hybrid_bipedal.yaml
+configs/m3_gae_bipedal.yaml

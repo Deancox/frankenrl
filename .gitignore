@@ -21,3 +21,13 @@ Thumbs.db
 # logs / tmp
 *.log
 tmp/
+
+# frankenrl run artifacts
+runs/
+*.pt
+*.pth
+tb/
+wandb/
+.pytest_cache/
+.ruff_cache/
+

@@ -1,0 +1,36 @@
+# FYP "M3_GAE": M1 hybrid with the policy-gradient weight from GAE (trajectory buffer +
+# burst updates at episode end). Needs agents/frankenstein.py (PLAN.md step 4).
+label: m3_gae_bipedal
+seed: 0
+device: auto
+out_dir: runs
+
+env:
+  id: BipedalWalker-v3
+  action_scale: 1.0
+
+agent:
+  kind: frankenstein
+  gamma: 0.99
+  tau: 0.005
+  lr: 0.0003
+  batch_size: 1024        # legacy M3 used a large batch
+  warmup_steps: 10000
+  entropy_coef: 0.2
+  autotune_entropy: true
+  policy_delay: 2
+  policy_loss: sac
+  advantage:
+    name: gae
+    gamma: 0.99
+    gae_lambda: 0.95
+    normalize: true
+  net:
+    hidden: [256, 256]
+    layernorm: true
+
+train:
+  total_steps: 1000000
+  eval_every_steps: 20000
+  eval_episodes: 10
+  checkpoint_every_steps: 100000

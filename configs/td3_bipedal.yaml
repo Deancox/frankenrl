@@ -1,0 +1,30 @@
+label: td3_bipedal
+seed: 0
+device: auto
+out_dir: runs
+
+env:
+  id: BipedalWalker-v3
+  action_scale: 1.0
+
+agent:
+  kind: td3
+  gamma: 0.99
+  tau: 0.005
+  lr: 0.0003
+  batch_size: 256
+  buffer_capacity: 1000000
+  warmup_steps: 10000
+  policy_delay: 2
+  target_policy_noise: 0.2
+  target_noise_clip: 0.5
+  exploration_noise: 0.1
+  net:
+    hidden: [256, 256]
+    layernorm: true
+
+train:
+  total_steps: 1000000
+  eval_every_steps: 20000
+  eval_episodes: 10
+  checkpoint_every_steps: 100000

@@ -1,0 +1,38 @@
+# FYP "M1" hybrid: SAC squashed actor + entropy, TD3 twin-clipped critics + delayed actor,
+# 1-step target, soft target updates. Should track reference SAC under a matched seed
+# (verify: vault [[SAC equals M1 under a controlled seed]]).
+# Needs agents/frankenstein.py (PLAN.md step 4).
+label: m1_hybrid_bipedal
+seed: 0
+device: auto
+out_dir: runs
+
+env:
+  id: BipedalWalker-v3
+  action_scale: 1.0
+
+agent:
+  kind: frankenstein
+  gamma: 0.99
+  tau: 0.005
+  lr: 0.0003
+  batch_size: 256
+  buffer_capacity: 1000000
+  warmup_steps: 10000
+  entropy_coef: 0.2
+  autotune_entropy: true
+  policy_delay: 2
+  policy_loss: sac
+  advantage:
+    name: onestep
+    gamma: 0.99
+    normalize: true
+  net:
+    hidden: [256, 256]
+    layernorm: true
+
+train:
+  total_steps: 1000000
+  eval_every_steps: 20000
+  eval_episodes: 10
+  checkpoint_every_steps: 100000
