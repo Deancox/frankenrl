@@ -10,7 +10,7 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, get_type_hints
 
 import yaml
 
@@ -95,12 +95,14 @@ class RunConfig:
 def _from_dict(cls: type, data: dict[str, Any]) -> Any:
     if not is_dataclass(cls):
         return data
+    # `from __future__ import annotations` makes f.type a string; resolve to real objects.
+    hints = get_type_hints(cls)
     kwargs: dict[str, Any] = {}
-    known = {f.name: f for f in fields(cls)}
+    known = {f.name for f in fields(cls)}
     for key, value in data.items():
         if key not in known:
             raise KeyError(f"{cls.__name__} has no field {key!r}")
-        ftype = known[key].type
+        ftype = hints.get(key)
         if is_dataclass(ftype) and isinstance(value, dict):
             kwargs[key] = _from_dict(ftype, value)
         elif key == "hidden" and isinstance(value, list):
