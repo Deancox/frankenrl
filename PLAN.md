@@ -50,6 +50,46 @@ Migration of the FYP "Frankenstein" corpus into one config-driven package.
    5 advantage estimators as configs; verify `[[SAC equals M1 under a controlled seed]]`.
 5. **PBS runner** + `sweep.py`; one BipedalWalker sweep end-to-end on Gadi.
 6. **`analysis/`** — multi-seed aggregation, CI bands, the report comparison figures.
+7. ~~**BRO**~~ ✅ `nn/bronet.py` (BroNet residual quantile critic) + `agents/bro.py` +
+   `configs/bro_{pendulum,fast_pendulum}.yaml`. Standalone reference agent (not a
+   `FrankensteinAgent` config — BRO's mechanisms don't map onto that vocabulary; see
+   `agents/bro.py`'s module docstring). Not part of the FYP legacy corpus, doesn't block
+   step 4. 19 new tests (`test_bronet.py`, `test_bro.py`, plus `"bro"` added to the generic
+   smoke/config test parametrizations). Manual verification: short (3k-step, replay-ratio-2,
+   reset-at-500/1500) Pendulum-v1 CLI run completed without crashing or NaNs (exit 0, 15
+   episodes / 3000 steps / 663s CPU; eval returns -870 → -1161 → -261 — noisy and not a
+   benchmark at this step budget with two resets in the first 1500 steps, but no divergence
+   or NaN). Confirms the full pipeline end to end; correctness only, not tuning.
+   `optimism_coef`/`kl_coef`/`weight_decay`/the
+   reset schedule are this codebase's own untuned picks (`config.py::BroConfig`'s
+   docstring), not the paper's literature values — tune with `scripts/sweep.py` before
+   drawing any real conclusion from a run.
+8. ~~**Standalone baselines**~~ ✅ `standalone/{sac,td3,td7,bro,simba_sac,simba_td3}.py` —
+   completely self-contained, single-file (CleanRL-style) reference implementations, no
+   `frankenrl` package imports, one algorithm per file. TD7 and SimBa required fresh vault
+   research (`Research/2026-09-13-td7-for-sale-state-action-representation-learning.md`,
+   `Research/2026-09-13-simba-simplicity-bias-scaling-rl.md`) and new wiki docs
+   (`Wiki/RL/TD7 - ...md`, `Wiki/RL/SimBa - ...md`) — neither existed in the vault before.
+   `simba_td3.py` is flagged explicitly as an unpublished combination: the SimBa paper tests
+   DDPG, not TD3; this file layers TD3's three fixes onto the DDPG+SimBa recipe by analogy.
+   6 new tests (`tests/test_standalone_smoke.py`), all real-env smoke runs, no crashes/NaNs.
+   Separate from the composable `src/frankenrl/agents/` line — see `standalone/README.md`
+   for why both exist and when to use which.
+   **Proof pass, 2026-09-14:** all six also verified on `Ant-v5` (105-dim obs, 8-dim action —
+   substantially higher-dimensional than the Pendulum smoke tests, so a real check for
+   shape/broadcast bugs), 3000 steps each, small nets, exit 0, no crashes/NaNs across the
+   board. `mujoco`/`box2d`/`analysis` extras installed locally (`uv sync --all-extras`) to
+   make this possible.
+9. ~~**Gadi PBS for the standalone suite**~~ ✅ `scripts/gadi/{train_standalone_suite.pbs,
+   standalone_suite.txt, submit_standalone.sh}` — parallel to the existing `train_suite.pbs`
+   (which only drives the framework's YAML-config agents), since TD7/SimBa-SAC/SimBa-TD3
+   have no framework port. One job-array task per `standalone/` script, CLI flags only (no
+   config system). Defaults to `Ant-v5`, 1M steps, seed 0 — override via `ENV`/`TOTAL_STEPS`/
+   `SEED` env vars or `scripts/gadi/submit_standalone.sh "<seeds>"`. **Not yet run on Gadi
+   itself** — the proof pass above confirms correctness locally (small nets, 3k steps, CPU);
+   real throughput/walltime at full BRO/TD7 default sizes (critic width 512, BRO replay
+   ratio 10) on Gadi's GPU is unmeasured. If 8h walltime proves tight for BRO/TD7 at 1M
+   steps, either raise `#PBS -l walltime` or lower `TOTAL_STEPS` per submission.
 
 ## Validation targets (from the FYP results)
 

@@ -16,7 +16,10 @@ shared agents/commands/hooks load from `~/.claude/CLAUDE.md`.
   config-driven package. Reproduce the FYP results, then extend (PPO-clip-in-TD3, etc.).
 - **In scope:** the `frankenrl` package; reference SAC/TD3/PPO; the composable Frankenstein
   agent; buffers; advantage estimators; seeded training loop; CSV + TensorBoard logging;
-  local + PBS runners; per-variant YAML configs; tests; a results-analysis layer.
+  local + PBS runners; per-variant YAML configs; tests; a results-analysis layer;
+  `standalone/` — completely self-contained, single-file (CleanRL-style) reference agents
+  (SAC, TD3, TD7, BRO, SimBa-backbone SAC/TD3) that intentionally do **not** use the shared
+  package, for fast side-by-side reading/comparison — see `standalone/README.md`.
 - **Out of scope:** new environments/physics; sim-to-real; the FYP report prose (lives in
   `fyp-corpus-raw/FYP Report/`); rewriting history - legacy code stays read-only reference.
 - **Status (2026-09-01):** scaffold + primitives done (27 tests green). **SAC vertical slice
@@ -54,18 +57,26 @@ All under **`../../fyp-corpus-raw/`** (i.e. `Garage/fyp-corpus-raw/`):
 
 ```
 src/frankenrl/
-  nn/         blocks (MLP + optional LayerNorm/Mish/orthogonal), actors, critics
+  nn/         blocks (MLP + optional LayerNorm/Mish/orthogonal), actors, critics, bronet
+              (BRO's residual quantile-ensemble critic - standalone, not part of the
+              swappable-parts vocabulary below)
   buffers/    uniform (off-policy), trajectory (on-policy), returns (MC), gae
   advantage.py   estimator registry: onestep | tderror | a2c | mc | expected_sarsa | gae
-  agents/     base (ABC) | sac | td3 | ppo | frankenstein (composed from parts + a config)
+  agents/     base (ABC) | sac | td3 | ppo | bro | frankenstein (composed from parts + a config)
   config.py   dataclasses + YAML load/merge/CLI-override
   envs.py     gym.make wrapper (action scaling, optional obs norm)
   seeding.py  one call seeds python/numpy/torch/env
   train.py    single seeded run + logging          eval.py
   logging.py  CSV + TensorBoard; self-describing checkpoints
 configs/      base.yaml + one per legacy variant (sac_bipedal, m1_hybrid_bipedal, m3_gae_*, ...)
+              + bro_pendulum / bro_fast_pendulum (untuned placeholder hyperparameters, see
+              config.py::BroConfig's docstring)
 scripts/      run.py (CLI) | sweep.py (local multi-seed) | gadi/train_suite.pbs + submit.sh
+              (framework agents) | gadi/train_standalone_suite.pbs + submit_standalone.sh
+              (standalone/ scripts - CLI flags, no config system, defaults to Ant-v5)
 tests/        actors (log-prob vs analytic) | buffers | advantage (GAE vs known) | agent smoke
+              | bronet (worked-example arithmetic vs the vault wiki doc) | bro (reset
+              schedule, pi_o-only acting, no-CDQ, KL-invariance precondition)
 analysis/     load *_rewards.csv across seeds -> CI bands, comparison figures
 ```
 
@@ -77,6 +88,12 @@ analysis/     load *_rewards.csv across seeds -> CI bands, comparison figures
   classes.
 - **Every run is seeded and self-describing.** Checkpoints embed the resolved config +
   git SHA + env id (see `[[Self-describing RL checkpoints]]`).
+- **`agent.updates_per_step` is the shared replay-ratio knob**, not a SAC/TD3-only field:
+  BRO reuses it directly as its critic replay ratio (paper default 10, "Fast" variant 2)
+  rather than adding a duplicate `bro.replay_ratio`. `Agent.update(step)` already receives
+  the absolute env-step count, so a reset schedule (or any other step-triggered behaviour)
+  is implemented entirely inside an agent's own `update()` - no `train.py` hook needed
+  (`agents/bro.py::_maybe_reset`).
 - **Match the legacy output contract** so old analysis still works:
   `<out>/<label>/<label>_rewards.csv` (header `reward`, one row/episode) + `<label>_metrics.png`.
 - **Fix, don't port, the known bugs:** SAC target critic is soft-updated only (never

@@ -1,0 +1,11 @@
+# One run per line: <standalone script, relative to repo root> [extra CLI flags]
+# Job array index maps to line number (0-based, skipping blanks/comments).
+# `--env`/`--total-steps`/`--seed` are supplied by train_standalone_suite.pbs itself
+# (ENV/TOTAL_STEPS/SEED env vars) - do not repeat them here unless overriding per-line.
+# Submit e.g.:  SEED=0 ENV=Ant-v5 qsub -J 0-5 scripts/gadi/train_standalone_suite.pbs
+standalone/sac.py
+standalone/td3.py
+standalone/bro.py --updates-per-step 10
+standalone/td7.py
+standalone/simba_sac.py
+standalone/simba_td3.py
