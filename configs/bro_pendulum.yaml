@@ -1,0 +1,39 @@
+# Fast local sanity slice for BRO. Not a benchmark reproduction: the paper's own schedule
+# (15k, 50k, 250k, 500k, 750k, 1M) is tuned for 1M-step DMC/MetaWorld/MyoSuite runs;
+# `reset_schedule` below is a proportional rescale to Pendulum's ~60k-step budget, chosen by
+# simple guesswork, not a literature value - re-tune with scripts/sweep.py before drawing any
+# real conclusion from it. Same caveat applies to `optimism_coef`/`kl_coef`/`weight_decay`
+# (see config.py::BroConfig's docstring).
+label: bro_pendulum
+seed: 0
+device: auto
+out_dir: runs
+
+env:
+  id: Pendulum-v1
+  action_scale: 2.0        # Pendulum torque is in [-2, 2]
+
+agent:
+  kind: bro
+  lr: 0.0003
+  batch_size: 256
+  warmup_steps: 1000
+  updates_per_step: 10      # BRO's critic replay ratio (paper default); see bro_fast for 2
+  autotune_entropy: true
+  net:
+    hidden: [256, 256]      # actor width only - BroNet critic width is set under `bro:` below
+    layernorm: false
+  bro:
+    critic_width: 512
+    critic_blocks: 2
+    n_quantiles: 100
+    reset_schedule: [5000, 15000, 30000]   # rescaled placeholder, see header comment
+    optimism_coef: 0.5
+    kl_coef: 0.1
+    weight_decay: 0.01
+
+train:
+  total_steps: 60000
+  eval_every_steps: 5000
+  eval_episodes: 5
+  checkpoint_every_steps: 20000

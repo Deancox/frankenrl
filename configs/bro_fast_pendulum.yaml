@@ -1,0 +1,35 @@
+# "BRO (Fast)" variant: replay ratio 2 instead of 10, trading some of the aggregate score for
+# roughly SAC-comparable wall-clock cost. Same untuned-placeholder caveats as bro_pendulum.yaml.
+label: bro_fast_pendulum
+seed: 0
+device: auto
+out_dir: runs
+
+env:
+  id: Pendulum-v1
+  action_scale: 2.0
+
+agent:
+  kind: bro
+  lr: 0.0003
+  batch_size: 256
+  warmup_steps: 1000
+  updates_per_step: 2
+  autotune_entropy: true
+  net:
+    hidden: [256, 256]
+    layernorm: false
+  bro:
+    critic_width: 512
+    critic_blocks: 2
+    n_quantiles: 100
+    reset_schedule: [5000, 15000, 30000]
+    optimism_coef: 0.5
+    kl_coef: 0.1
+    weight_decay: 0.01
+
+train:
+  total_steps: 60000
+  eval_every_steps: 5000
+  eval_episodes: 5
+  checkpoint_every_steps: 20000

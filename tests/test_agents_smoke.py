@@ -37,11 +37,15 @@ def _rollout(agent, steps: int) -> None:
             agent.on_episode_end()
 
 
-@pytest.mark.parametrize("kind", ["sac", "td3"])
+@pytest.mark.parametrize("kind", ["sac", "td3", "bro"])
 def test_agent_builds_learns_and_checkpoints(kind):
     seed_everything(0)
     cfg = AgentConfig(kind=kind, batch_size=32, warmup_steps=20, buffer_capacity=2000)
     cfg.net.hidden = (32, 32)
+    # shrink BroNet for a fast smoke test; harmless no-op for sac/td3, which ignore `bro`
+    cfg.bro.critic_width = 32
+    cfg.bro.critic_blocks = 1
+    cfg.bro.n_quantiles = 8
     agent = build_agent(kind, S, A, action_scale=1.0, cfg=cfg, device="cpu", seed=0)
 
     _rollout(agent, steps=120)  # past warmup -> at least one real update

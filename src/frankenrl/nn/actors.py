@@ -57,6 +57,18 @@ class SquashedGaussianActor(nn.Module):
         log_std = self.log_std_head(x).clamp(LOG_STD_MIN, LOG_STD_MAX)
         return Normal(mu, log_std.exp())
 
+    def distribution(self, state: torch.Tensor) -> Normal:
+        """Public pre-tanh Gaussian accessor (e.g. a closed-form KL between two actors).
+
+        KL divergence is invariant under an identical invertible transform applied to both
+        sides, so the exact post-tanh-squash KL between two ``SquashedGaussianActor``s that
+        share an ``action_scale`` equals this pre-squash Gaussian KL - see BRO's optimistic
+        actor loss in [[BRO - scaling off-policy actor-critic RL with regularized critics
+        and optimistic exploration]] section 6, and the cross-check against a Monte-Carlo
+        estimate in ``tests/test_bro.py``.
+        """
+        return self._distribution(state)
+
     def forward(self, state: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Return ``(mu, sigma)`` of the pre-squash Gaussian (diagnostics / determin. eval)."""
         dist = self._distribution(state)

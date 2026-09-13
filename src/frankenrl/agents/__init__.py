@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from frankenrl.agents.base import Agent
+from frankenrl.agents.bro import BRO
 from frankenrl.agents.frankenstein import Frankenstein
 from frankenrl.agents.ppo import PPO
 from frankenrl.agents.sac import SAC
@@ -14,6 +15,7 @@ _REGISTRY: dict[str, type[Agent]] = {
     "td3": TD3,
     "ppo": PPO,
     "frankenstein": Frankenstein,
+    "bro": BRO,
 }
 
 
@@ -34,4 +36,4 @@ def build_agent(
     )
 
 
-__all__ = ["Agent", "SAC", "TD3", "PPO", "Frankenstein", "build_agent"]
+__all__ = ["Agent", "SAC", "TD3", "PPO", "Frankenstein", "BRO", "build_agent"]

@@ -27,6 +27,13 @@ def _orthogonal_(module: nn.Module, gain: float) -> None:
         nn.init.zeros_(module.bias)
 
 
+def resolve_activation(name: str) -> type[nn.Module]:
+    """Look up an activation class by its config key (``"mish"``, ``"relu"``, ...)."""
+    if name not in _ACTIVATIONS:
+        raise ValueError(f"unknown activation {name!r}; have {sorted(_ACTIVATIONS)}")
+    return _ACTIVATIONS[name]
+
+
 def mlp(
     in_dim: int,
     out_dim: int,
@@ -48,9 +55,7 @@ def mlp(
         orthogonal_gain: if not None, orthogonal-init every ``Linear`` with this gain and
             zero biases (legacy default). Pass None to keep PyTorch defaults.
     """
-    if activation not in _ACTIVATIONS:
-        raise ValueError(f"unknown activation {activation!r}; have {sorted(_ACTIVATIONS)}")
-    act_cls = _ACTIVATIONS[activation]
+    act_cls = resolve_activation(activation)
 
     layers: list[nn.Module] = []
     prev = in_dim
@@ -62,9 +67,7 @@ def mlp(
         prev = width
     layers.append(nn.Linear(prev, out_dim))
     if output_activation is not None:
-        if output_activation not in _ACTIVATIONS:
-            raise ValueError(f"unknown output_activation {output_activation!r}")
-        layers.append(_ACTIVATIONS[output_activation]())
+        layers.append(resolve_activation(output_activation)())
 
     net = nn.Sequential(*layers)
     if orthogonal_gain is not None:
@@ -86,3 +89,23 @@ def hard_update(target: nn.Module, source: nn.Module) -> None:
     with torch.no_grad():
         for tp, sp in zip(target.parameters(), source.parameters(), strict=True):
             tp.copy_(sp)
+
+
+def reinit_module_(module: nn.Module, *, orthogonal_gain: float | None = np.sqrt(2)) -> None:
+    """Re-initialise every ``Linear``/``LayerNorm`` submodule of ``module`` in place.
+
+    BRO's primacy-bias mitigation: wipe all network parameters on a fixed step schedule
+    while keeping the replay buffer. See
+    [[BRO - scaling off-policy actor-critic RL with regularized critics and optimistic
+    exploration]] section 4. ``orthogonal_gain=None`` falls back to each layer's own
+    ``reset_parameters`` (PyTorch's default init) instead of orthogonal init.
+    """
+    for m in module.modules():
+        if isinstance(m, nn.Linear):
+            if orthogonal_gain is not None:
+                nn.init.orthogonal_(m.weight, gain=orthogonal_gain)
+                nn.init.zeros_(m.bias)
+            else:
+                m.reset_parameters()
+        elif isinstance(m, nn.LayerNorm):
+            m.reset_parameters()

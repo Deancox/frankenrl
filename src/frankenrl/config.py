@@ -10,7 +10,7 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
-from typing import Any, get_type_hints
+from typing import Any, get_origin, get_type_hints
 
 import yaml
 
@@ -40,16 +40,39 @@ class AdvantageConfig:
 
 
 @dataclass
+class BroConfig:
+    """BRO-specific hyperparameters (Nauman et al., NeurIPS 2024, arXiv:2405.16158).
+
+    See [[BRO - scaling off-policy actor-critic RL with regularized critics and optimistic
+    exploration]]. ``optimism_coef``/``kl_coef``/``weight_decay`` are not pinned down by the
+    paper as read for that document - defaults below are this codebase's own picks, not
+    literature values; expect to sweep them (`scripts/sweep.py`).
+    """
+
+    critic_width: int = 512
+    critic_blocks: int = 2
+    n_quantiles: int = 100
+    # env-step checkpoints at which every network is fully re-initialised (buffer kept).
+    # paper's own 1M-step schedule; rescale per task step budget (see configs/bro_pendulum.yaml).
+    reset_schedule: tuple[int, ...] = (15_000, 50_000, 250_000, 500_000, 750_000, 1_000_000)
+    reset_optimizer_state: bool = True
+    optimism_coef: float = 0.5        # beta^o: exploration actor's disagreement bonus weight
+    kl_coef: float = 0.1              # tau: KL(pi_p || pi_o) regulariser weight
+    weight_decay: float = 1e-2        # AdamW, actors + critic
+    quantile_huber_kappa: float = 1.0
+
+
+@dataclass
 class AgentConfig:
-    kind: str = "sac"                 # sac | td3 | ppo | frankenstein
+    kind: str = "sac"                 # sac | td3 | ppo | frankenstein | bro
     gamma: float = 0.99
     tau: float = 0.005               # Polyak factor for target nets
     lr: float = 3e-4
     batch_size: int = 256
     buffer_capacity: int = 1_000_000
     warmup_steps: int = 1_000        # random actions before learning
-    updates_per_step: int = 1
-    # SAC / entropy
+    updates_per_step: int = 1        # also BRO's critic replay ratio (paper default: 10)
+    # SAC / entropy (also used by BRO's pi_p)
     entropy_coef: float = 0.2
     autotune_entropy: bool = True
     target_entropy: float | None = None
@@ -66,6 +89,7 @@ class AgentConfig:
     policy_loss: str = "sac"         # sac | dpg | ppo_clip
     advantage: AdvantageConfig = field(default_factory=AdvantageConfig)
     net: NetConfig = field(default_factory=NetConfig)
+    bro: BroConfig = field(default_factory=BroConfig)
 
 
 @dataclass
@@ -105,7 +129,7 @@ def _from_dict(cls: type, data: dict[str, Any]) -> Any:
         ftype = hints.get(key)
         if is_dataclass(ftype) and isinstance(value, dict):
             kwargs[key] = _from_dict(ftype, value)
-        elif key == "hidden" and isinstance(value, list):
+        elif get_origin(ftype) is tuple and isinstance(value, list):
             kwargs[key] = tuple(value)
         else:
             kwargs[key] = value

@@ -18,7 +18,7 @@ def test_all_shipped_configs_load():
     for path in (REPO / "configs").glob("*.yaml"):
         cfg = load_config(path)
         assert cfg.label
-        assert to_dict(cfg)["agent"]["kind"] in {"sac", "td3", "ppo", "frankenstein"}
+        assert to_dict(cfg)["agent"]["kind"] in {"sac", "td3", "ppo", "frankenstein", "bro"}
 
 
 def test_cli_overrides():
@@ -35,3 +35,12 @@ def test_cli_overrides():
 def test_unknown_field_rejected():
     with pytest.raises(KeyError):
         load_config(REPO / "configs" / "base.yaml", ["agent.nonsense=1"])
+
+
+def test_bro_reset_schedule_loads_as_tuple():
+    """`reset_schedule` is a `tuple[int, ...]` field, same as `net.hidden` - a YAML list
+    should convert generically, not via a name-specific special case."""
+    cfg = load_config(REPO / "configs" / "bro_pendulum.yaml")
+    assert cfg.agent.kind == "bro"
+    assert isinstance(cfg.agent.bro.reset_schedule, tuple)
+    assert cfg.agent.bro.reset_schedule == tuple(sorted(cfg.agent.bro.reset_schedule))
