@@ -23,7 +23,7 @@ N=$(grep -cvE '^\s*(#|$)' scripts/gadi/standalone_suite.txt)
 for e in $ENVS; do
     for s in $SEEDS; do
         echo "submitting standalone suite (${N} runs) - env=${e} seed=${s} total_steps=${TOTAL_STEPS}"
-        ENV="$e" SEED="$s" TOTAL_STEPS="$TOTAL_STEPS" \
-            qsub -v ENV,SEED,TOTAL_STEPS -J "0-$((N - 1))" scripts/gadi/train_standalone_suite.pbs
+        GYM_ENV="$e" SEED="$s" TOTAL_STEPS="$TOTAL_STEPS" \
+            qsub -v GYM_ENV,SEED,TOTAL_STEPS -J "0-$((N - 1))" scripts/gadi/train_standalone_suite.pbs
     done
 done

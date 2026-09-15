@@ -58,14 +58,20 @@ PBS job array, parallel to `scripts/gadi/train_suite.pbs` (which only drives the
 YAML-config agents — no use for TD7/SimBa-SAC/SimBa-TD3, which have no framework port).
 
 ```bash
-ENV=Ant-v5 SEED=0 qsub -v ENV,SEED,TOTAL_STEPS -J 0-5 scripts/gadi/train_standalone_suite.pbs   # one array index per line of standalone_suite.txt
-./scripts/gadi/submit_standalone.sh "0 1 2"                                                      # or: several seeds, one env, at once
-./scripts/gadi/submit_standalone_multi.sh "Ant-v5 Humanoid-v5" "0 1 42 975206 928980"            # or: several envs x seeds in one call
+GYM_ENV=Ant-v5 SEED=0 qsub -v GYM_ENV,SEED,TOTAL_STEPS -J 0-5 scripts/gadi/train_standalone_suite.pbs   # one array index per line of standalone_suite.txt
+./scripts/gadi/submit_standalone.sh "0 1 2"                                                              # or: several seeds, one env, at once
+./scripts/gadi/submit_standalone_multi.sh "Ant-v5 Humanoid-v5" "0 1 42 975206 928980"                    # or: several envs x seeds in one call
 ```
 
 The `-v` flag is not optional - `VAR=value qsub ...` only sets `VAR` for the `qsub` client
 process, not the job itself; PBS Pro needs `-v VAR` (bare name) to forward it through. Both
-wrapper scripts already do this correctly.
+wrapper scripts already do this correctly. The variable is `GYM_ENV`, not `ENV` - `$ENV` is
+POSIX-sh-reserved (read at shell startup to source an rc-equivalent file) and Gadi's own
+environment already uses it to auto-load the Modules system, so a plain `ENV=` gets silently
+clobbered inside the job. Also needs `export PATH="$HOME/.local/bin:$PATH"` before `uv run`
+in the PBS script (already there) - PBS batch shells don't source `~/.bashrc`, so `uv`
+(installed to `~/.local/bin`) isn't found otherwise. Both were real failures on the first
+submission, not hypothetical - see git history on `scripts/gadi/train_standalone_suite.pbs`.
 
 Defaults to `Ant-v5`, 1M steps. Logs land at
 `/scratch/$PBS_O_PROJECT/$USER/frankenrl-standalone/<script>_<env>_s<seed>.log`. Needs the

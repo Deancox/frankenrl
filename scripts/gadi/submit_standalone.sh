@@ -1,7 +1,7 @@
 #!/bin/bash
 # Convenience wrapper: submit the standalone suite across several seeds, ONE environment.
 #   ./scripts/gadi/submit_standalone.sh "0 1 2"
-#   ENV=Ant-v5 TOTAL_STEPS=1000000 ./scripts/gadi/submit_standalone.sh "0 1 2"
+#   GYM_ENV=Ant-v5 TOTAL_STEPS=1000000 ./scripts/gadi/submit_standalone.sh "0 1 2"
 # For multiple environments in one call (e.g. Ant + Humanoid overnight), use
 # submit_standalone_multi.sh instead.
 #
@@ -16,7 +16,7 @@ set -euo pipefail
 SEEDS="${1:-0}"
 N=$(grep -cvE '^\s*(#|$)' scripts/gadi/standalone_suite.txt)
 for s in $SEEDS; do
-    echo "submitting standalone suite (${N} runs) at seed ${s}, env ${ENV:-Ant-v5}"
-    SEED="$s" ENV="${ENV:-Ant-v5}" TOTAL_STEPS="${TOTAL_STEPS:-1000000}" \
-        qsub -v SEED,ENV,TOTAL_STEPS -J "0-$((N - 1))" scripts/gadi/train_standalone_suite.pbs
+    echo "submitting standalone suite (${N} runs) at seed ${s}, env ${GYM_ENV:-Ant-v5}"
+    SEED="$s" GYM_ENV="${GYM_ENV:-Ant-v5}" TOTAL_STEPS="${TOTAL_STEPS:-1000000}" \
+        qsub -v SEED,GYM_ENV,TOTAL_STEPS -J "0-$((N - 1))" scripts/gadi/train_standalone_suite.pbs
 done

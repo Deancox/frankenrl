@@ -4,13 +4,18 @@
 # overrides). Parallel to train_suite.pbs, which drives the framework's YAML-config agents
 # instead; use this one for TD7/SimBa-SAC/SimBa-TD3, which have no framework port yet.
 #
-# Submit:  ENV=Ant-v5 SEED=0 qsub -v ENV,SEED,TOTAL_STEPS,SUITE -J 0-5 scripts/gadi/train_standalone_suite.pbs
+# Submit:  GYM_ENV=Ant-v5 SEED=0 qsub -v GYM_ENV,SEED,TOTAL_STEPS,SUITE -J 0-5 scripts/gadi/train_standalone_suite.pbs
 #   (range must match standalone_suite.txt's non-comment line count - 1;
 #    scripts/gadi/submit_standalone.sh wraps this for multiple seeds)
 #   THE -v FLAG IS NOT OPTIONAL: `VAR=value qsub ...` only sets VAR for the qsub client
 #   process, not the submitted job - PBS Pro needs `-v VAR` (bare name) to forward that
 #   value through. Without it every job silently uses this script's defaults below,
 #   regardless of what you set on the command line.
+#   NOT CALLED "ENV": $ENV is POSIX-sh-reserved (a shell reads it at startup to source an
+#   rc-equivalent file) - Gadi's own environment sets it to the Modules system's init
+#   script, which silently clobbers a plain `ENV=` variable of your own. Learned this the
+#   hard way on the first submission (see git history) - every job failed instantly with
+#   env=/opt/Modules/v4.3.0/init/profile.sh instead of the intended Gym env id.
 #
 # One-time setup, ON THE LOGIN NODE (compute nodes have no outbound internet, so this
 # can't happen inside the PBS job itself):
@@ -18,8 +23,13 @@
 #   curl -LsSf https://astral.sh/uv/install.sh | sh   # skip if uv is already installed
 #   module load python3/3.11.7
 #   uv sync --extra mujoco                     # builds .venv/ here, reused by every job
+#   which uv                                   # confirm it resolves BEFORE relying on PATH below
 # This job then runs everything via `uv run`, which activates that .venv automatically -
-# no manual `source .venv/bin/activate` needed inside the PBS script itself.
+# no manual `source .venv/bin/activate` needed inside the PBS script itself. PBS batch jobs
+# run a non-login shell that does NOT source the profile files an interactive SSH session
+# does, so ~/.local/bin (where the installer puts uv) is not on PATH by default - the
+# explicit export below is required, not defensive boilerplate (first submission failed
+# with "uv: command not found" without it).
 #
 #PBS -N frankenrl_standalone_suite
 #PBS -q gpuvolta
@@ -35,10 +45,12 @@
 
 set -euo pipefail
 
+export PATH="$HOME/.local/bin:$PATH"   # uv lives here; PBS batch shells don't source ~/.bashrc
+
 module load python3/3.11.7
 
 SUITE="${SUITE:-scripts/gadi/standalone_suite.txt}"
-ENV="${ENV:-Ant-v5}"
+GYM_ENV="${GYM_ENV:-Ant-v5}"
 TOTAL_STEPS="${TOTAL_STEPS:-1000000}"
 SEED="${SEED:-0}"
 OUT_ROOT="/scratch/${PBS_O_PROJECT:-qy44}/${USER}/frankenrl-standalone"
@@ -53,16 +65,16 @@ fi
 
 SCRIPT=$(echo "$LINE" | awk '{print $1}')
 EXTRA=$(echo "$LINE" | cut -s -d' ' -f2-)          # optional extra CLI flags
-LABEL=$(basename "${SCRIPT%.py}")_${ENV}_s${SEED}
+LABEL=$(basename "${SCRIPT%.py}")_${GYM_ENV}_s${SEED}
 LOG="${OUT_ROOT}/${LABEL}.log"
 
-echo "[$(date)] index=${PBS_ARRAY_INDEX} script=${SCRIPT} env=${ENV} label=${LABEL} extra='${EXTRA}'"
+echo "[$(date)] index=${PBS_ARRAY_INDEX} script=${SCRIPT} env=${GYM_ENV} label=${LABEL} extra='${EXTRA}'"
 
 # standalone/ scripts take everything as CLI flags - no PYTHONPATH/editable-install needed,
 # no frankenrl import at all (that's the point - see standalone/README.md). `uv run` picks
 # up the .venv/ built during the one-time setup above; no manual activation needed.
 uv run python3 "$SCRIPT" \
-    --env "$ENV" \
+    --env "$GYM_ENV" \
     --seed "$SEED" \
     --total-steps "$TOTAL_STEPS" \
     ${EXTRA} \
