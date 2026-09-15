@@ -73,7 +73,11 @@ echo "[$(date)] index=${PBS_ARRAY_INDEX} script=${SCRIPT} env=${GYM_ENV} label=$
 # standalone/ scripts take everything as CLI flags - no PYTHONPATH/editable-install needed,
 # no frankenrl import at all (that's the point - see standalone/README.md). `uv run` picks
 # up the .venv/ built during the one-time setup above; no manual activation needed.
-uv run python3 "$SCRIPT" \
+# --no-sync is REQUIRED here, not an optimisation: without it, `uv run` re-verifies the
+# whole project on every invocation, including rebuilding the frankenrl package itself in
+# editable mode - which needs to fetch hatchling from PyPI, and compute nodes have no
+# outbound internet. --no-sync uses the .venv exactly as `uv sync` left it on the login node.
+uv run --no-sync python3 "$SCRIPT" \
     --env "$GYM_ENV" \
     --seed "$SEED" \
     --total-steps "$TOTAL_STEPS" \

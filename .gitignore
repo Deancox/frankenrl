@@ -31,3 +31,7 @@ wandb/
 .pytest_cache/
 .ruff_cache/
 
+# PBS job output (lands in the submission dir - the repo root - via #PBS -l wd)
+*.o[0-9]*
+*.e[0-9]*
+
