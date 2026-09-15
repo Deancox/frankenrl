@@ -81,6 +81,34 @@ COMMON_ARGV = [
                 "--updates-per-step", "1",
             ],
         ),
+        (
+            "simba_bro_td7",
+            COMMON_ARGV
+            + [
+                "--critic-width", "32", "--critic-blocks", "1",
+                "--actor-width", "16", "--actor-blocks", "1",
+                "--zs-dim", "8", "--encoder-hdim", "16",
+                "--updates-per-step", "1",
+                "--target-update-rate", "50",
+                "--reset-schedule", "150",
+                "--checkpoint-steps-before", "100",
+            ],
+        ),
+        (
+            # PPO is on-policy - its CLI has no --warmup-steps/--batch-size/--buffer-size,
+            # so it can't extend COMMON_ARGV like the off-policy scripts above.
+            "ppo",
+            [
+                "--env", "Pendulum-v1",
+                "--total-steps", "200",
+                "--rollout-steps", "64",
+                "--minibatch-size", "16",
+                "--ppo-epochs", "2",
+                "--eval-every", "100",
+                "--eval-episodes", "1",
+                "--hidden", "16", "16",
+            ],
+        ),
     ],
 )
 def test_script_runs_without_crashing_or_nan(name, argv, monkeypatch, capsys):

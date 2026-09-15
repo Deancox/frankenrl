@@ -1,0 +1,22 @@
+# Comparison suite: the 6 algorithms from the TD7/BRO/SimBa-SAC Pendulum-v1 head-to-head
+# (2026-09-15), plus PPO, SAC and TD3 as on-policy/off-policy baselines - all 6 published,
+# unmodified algorithms (no simba_td3.py, no simba_bro_td7.py; both are this codebase's own
+# engineered combinations, not what was asked for here).
+#
+# One run per line: <standalone script, relative to repo root> [extra CLI flags]. Job array
+# index maps to line number (0-based, skipping blanks/comments). `--env`/`--total-steps`/
+# `--seed` are supplied by train_standalone_suite.pbs itself (GYM_ENV/TOTAL_STEPS/SEED env
+# vars) - do not repeat them here unless overriding per-line.
+#
+# Submit (defaults to Ant-v5, 1M steps - see train_standalone_suite.pbs's own header for the
+# one-time uv/venv setup this needs on the login node first):
+#   SEED=0 GYM_ENV=Ant-v5 qsub -v SEED,GYM_ENV,SUITE=scripts/gadi/compare_suite.txt \
+#       -J 0-5 scripts/gadi/train_standalone_suite.pbs
+# or, across several seeds in one call:
+#   SUITE=scripts/gadi/compare_suite.txt ./scripts/gadi/submit_standalone.sh "0 1 42"
+standalone/sac.py
+standalone/td3.py
+standalone/ppo.py
+standalone/bro.py --updates-per-step 10
+standalone/td7.py
+standalone/simba_sac.py

@@ -16,10 +16,12 @@ readable, side-by-side comparison and hacking on one algorithm in isolation.
 |---|---|---|---|
 | `sac.py` | SAC | Haarnoja et al., ICML 2018 (arXiv:1801.01290) | yes |
 | `td3.py` | TD3 | Fujimoto, van Hoof & Meger, ICML 2018 (arXiv:1802.09477) | yes |
+| `ppo.py` | PPO | Schulman et al., 2017 (arXiv:1707.06347) | yes — this suite's only on-policy script |
 | `td7.py` | TD7 ("TD3+4 additions": SALE, LAP, checkpoints, offline BC) | Fujimoto et al., "For SALE", NeurIPS 2023 | yes |
 | `bro.py` | BRO | Nauman et al., NeurIPS 2024 (arXiv:2405.16158) | yes |
 | `simba_sac.py` | SAC + SimBa backbone | Lee et al., "SimBa: Simplicity Bias for Scalable RL", ICLR 2025 | yes (paper tests SAC) |
 | `simba_td3.py` | TD3 + SimBa backbone | same SimBa paper | **no** — paper tests DDPG, not TD3; this file layers TD3's three fixes onto the DDPG+SimBa recipe as an engineered extrapolation, flagged in its own docstring |
+| `simba_bro_td7.py` | SimBa-SAC backbone + BRO's dual-actor/resets + TD7's SALE encoder/LAP replay/checkpoints | none — combines all three papers above | **no** — nobody has published this mixture; every grafting decision is this codebase's own engineering choice, see its own (long) module docstring |
 
 (Exact arXiv ids for TD7 and SimBa are pinned down in each script's own module docstring and
 the corresponding vault research report, not repeated here to avoid a second place to get a
@@ -51,16 +53,39 @@ run with default flags as a correctness check, not a benchmark result — tune w
 `scripts/sweep.py` (or your own sweep over these scripts directly, since they don't share
 that infrastructure) before drawing any real conclusion.
 
+`simba_bro_td7.py` inherits every one of the above unchanged, plus its own substitution: BRO's
+Q^sigma (quantile-ensemble disagreement) doesn't exist here since this file's critic has no
+quantile ensemble, so it's replaced with plain twin-critic disagreement `|Q1 - Q2|`. Since no
+paper tests this three-way combination at all, treat any run of it as a plumbing check only —
+see its own module docstring for the full list of grafting decisions and what was deliberately
+left out (TD3-style target-policy smoothing/delayed updates, TD7's value clipping).
+
+`ppo.py`'s implementation-detail choices (orthogonal init gains, per-minibatch advantage
+normalisation, clipping the env action but not the one used in the log-prob/ratio) are all
+well-established conventions from reference implementations (CleanRL, "the 37 implementation
+details of PPO"), not paper-specified mechanisms — see its own module docstring. Its per-step
+compute cost is far lower than the off-policy scripts (no replay-buffer gradient step per env
+step, only a burst of epochs after each rollout), but it is also far less sample-efficient —
+a short Pendulum-v1 run that leaves the off-policy scripts near-solved will leave PPO still
+learning; that's expected on-policy behaviour, not a bug.
+
 ## Running on NCI Gadi
 
-`scripts/gadi/train_standalone_suite.pbs` + `standalone_suite.txt` submit these scripts as a
-PBS job array, parallel to `scripts/gadi/train_suite.pbs` (which only drives the framework's
-YAML-config agents — no use for TD7/SimBa-SAC/SimBa-TD3, which have no framework port).
+`scripts/gadi/train_standalone_suite.pbs` submits these scripts as a PBS job array, parallel
+to `scripts/gadi/train_suite.pbs` (which only drives the framework's YAML-config agents — no
+use for TD7/SimBa-SAC/SimBa-TD3/PPO, which have no framework port). Which algorithms run is
+just which suite *file* you point it at, via `SUITE`:
+
+- `standalone_suite.txt` (default) — all 7 scripts in this directory.
+- `compare_suite.txt` — the 6-algorithm TD7/BRO/SimBa-SAC + PPO/SAC/TD3 comparison (the same
+  6 as the Pendulum-v1 head-to-head, minus the engineered `simba_td3.py`/`simba_bro_td7.py`).
 
 ```bash
-GYM_ENV=Ant-v5 SEED=0 qsub -v GYM_ENV,SEED,TOTAL_STEPS -J 0-5 scripts/gadi/train_standalone_suite.pbs   # one array index per line of standalone_suite.txt
-./scripts/gadi/submit_standalone.sh "0 1 2"                                                              # or: several seeds, one env, at once
-./scripts/gadi/submit_standalone_multi.sh "Ant-v5 Humanoid-v5" "0 1 42 975206 928980"                    # or: several envs x seeds in one call
+GYM_ENV=Ant-v5 SEED=0 qsub -v GYM_ENV,SEED,TOTAL_STEPS -J 0-6 scripts/gadi/train_standalone_suite.pbs                              # all 7, one array index per line of standalone_suite.txt
+SEED=0 GYM_ENV=Ant-v5 SUITE=scripts/gadi/compare_suite.txt qsub -v GYM_ENV,SEED,TOTAL_STEPS,SUITE -J 0-5 scripts/gadi/train_standalone_suite.pbs   # just the 6-algorithm comparison
+./scripts/gadi/submit_standalone.sh "0 1 2"                                                                                         # or: several seeds, one env, at once (wraps the above)
+SUITE=scripts/gadi/compare_suite.txt ./scripts/gadi/submit_standalone.sh "0 1 2"                                                    # same, but the comparison suite
+./scripts/gadi/submit_standalone_multi.sh "Ant-v5 Humanoid-v5" "0 1 42 975206 928980"                                               # or: several envs x seeds in one call (SUITE= works here too)
 ```
 
 The `-v` flag is not optional - `VAR=value qsub ...` only sets `VAR` for the `qsub` client

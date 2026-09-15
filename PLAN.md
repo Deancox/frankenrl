@@ -80,6 +80,48 @@ Migration of the FYP "Frankenstein" corpus into one config-driven package.
    shape/broadcast bugs), 3000 steps each, small nets, exit 0, no crashes/NaNs across the
    board. `mujoco`/`box2d`/`analysis` extras installed locally (`uv sync --all-extras`) to
    make this possible.
+9b. ~~**`standalone/simba_bro_td7.py`**~~ ✅ 2026-09-15 — combined agent grafting all three
+   new papers onto one SAC-based agent: SimBa-SAC backbone (RSNorm + pre-LN residual blocks,
+   used everywhere including inside the encoder), BRO's dual-actor optimistic exploration +
+   full-parameter reset schedule (critic Q^sigma adapted to plain twin-critic disagreement,
+   no quantile ensemble here), TD7's SALE encoder + LAP prioritized replay + policy
+   checkpoints (encoder on its own hard-copy refresh clock, independent of the critics'
+   Polyak averaging). **Unpublished combination** — no paper tests this mixture; see the
+   script's own module docstring for every grafting decision and what was deliberately
+   dropped (TD3-style smoothing/delayed updates, TD7's value clipping). 1 new smoke test
+   (`tests/test_standalone_smoke.py`); manual verification: 3000-step Pendulum-v1 CLI run
+   (small nets, replay-ratio-2, one mid-run full reset, one checkpoint decay) completed exit
+   0, no crashes/NaNs. Correctness only, not tuning or an ablation of which grafts help.
+9c. ~~**TD7 vs. BRO vs. SimBa-SAC head-to-head**~~ ✅ 2026-09-15 — all three run on matched
+   Pendulum-v1 settings (seed 0, 25k steps, scaled-down net sizes for CPU time), published as
+   an artifact with learning curves + a comparison table. SimBa-SAC converged fastest and
+   smoothest (solved by the first eval checkpoint, best final score); BRO's reset schedule
+   visibly wrecks and then recovers the eval score around its step-15k reset; TD7 converges
+   slowest then goes flat once its checkpoint gate stops advancing. Single seed, toy task,
+   sub-paper network sizes — a behavior check, not a benchmark verdict.
+9d. ~~**`standalone/ppo.py`**~~ ✅ 2026-09-15 — new standalone script, this suite's only
+   on-policy algorithm (Schulman et al. 2017): unbounded Gaussian actor (state-dependent
+   mean, one learned log-std vector) + plain VCritic, fixed-length rollouts, GAE (identical
+   recursion to `frankenrl.advantage.gae_targets`, including the truncation-vs-terminal
+   bootstrap fix from bug #5 above), clipped-surrogate + value-MSE + entropy-bonus loss over
+   shuffled minibatches across `--ppo-epochs` passes, gradient-norm clipping. Every
+   implementation-detail choice (orthogonal init gains, per-minibatch advantage
+   normalisation, clip-env-action-but-not-ratio-action) is a well-established convention
+   (CleanRL / "37 implementation details of PPO"), flagged as such in its own module
+   docstring since the paper itself underspecifies them. 1 new smoke test (its CLI has no
+   `--warmup-steps`/`--batch-size`/`--buffer-size`, so it can't reuse `COMMON_ARGV` like the
+   off-policy scripts); manual verification: 20k-step Pendulum-v1 CLI run, exit 0, no
+   crashes/NaNs, ~1300 sps (vs. ~15-55 sps for the off-policy scripts at similar net sizes —
+   no replay-buffer gradient step per env step). Did not solve Pendulum-v1 in 20k steps,
+   which is expected on-policy sample-inefficiency, not a bug.
+9e. ~~**Gadi comparison suite**~~ ✅ 2026-09-15 — `scripts/gadi/compare_suite.txt`: the same
+   6 algorithms as the Pendulum-v1 comparison (sac/td3/ppo/bro/td7/simba_sac) at each
+   script's own literature-scale defaults, for a real Gadi GPU run. `standalone_suite.txt`
+   gained `standalone/ppo.py` too (now all 7 standalone scripts, `-J 0-6`).
+   `train_standalone_suite.pbs` already read `SUITE` as an override - no script changes
+   needed there, just its header comment; `submit_standalone.sh` and
+   `submit_standalone_multi.sh` gained a `SUITE=` override (default: `standalone_suite.txt`)
+   so both wrappers can target either suite file. Not yet submitted to Gadi itself.
 9. ~~**Gadi PBS for the standalone suite**~~ ✅ `scripts/gadi/{train_standalone_suite.pbs,
    standalone_suite.txt, submit_standalone.sh}` — parallel to the existing `train_suite.pbs`
    (which only drives the framework's YAML-config agents), since TD7/SimBa-SAC/SimBa-TD3
