@@ -80,7 +80,12 @@ echo "[$(date)] index=${PBS_ARRAY_INDEX} script=${SCRIPT} env=${GYM_ENV} label=$
 # whole project on every invocation, including rebuilding the frankenrl package itself in
 # editable mode - which needs to fetch hatchling from PyPI, and compute nodes have no
 # outbound internet. --no-sync uses the .venv exactly as `uv sync` left it on the login node.
-uv run --no-sync python3 "$SCRIPT" \
+# PYTHONUNBUFFERED=1 is REQUIRED too, not defensive: Python block-buffers stdout when it's
+# piped rather than attached to a terminal, and a PBS walltime kill is an abrupt SIGKILL that
+# never lets the process flush that buffer on exit. Without this, a run that hits the
+# walltime limit loses everything since its last automatic buffer flush - confirmed the hard
+# way when BRO ran the full 8h on real GPU work and its .log came out at 0 bytes.
+PYTHONUNBUFFERED=1 uv run --no-sync python3 "$SCRIPT" \
     --env "$GYM_ENV" \
     --seed "$SEED" \
     --total-steps "$TOTAL_STEPS" \
