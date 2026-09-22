@@ -1,0 +1,19 @@
+# Single-algorithm suite for SimBa-SAC alone, to re-run it after the target-entropy sign fix
+# (was +|A|/2, positive; should be -|A|/2, negative - see git history:
+# "fix(simba-sac): correct target entropy sign"). The first run's curve was erratic and
+# non-monotonic because of this bug; this reruns it clean, same seeds as the rest of
+# compare_suite.txt's comparison (0, 1, 42), so it's directly comparable to the existing
+# SAC/TD3/PPO/TD7 data already pulled back from Gadi.
+#
+# PBS Pro rejects a single-task array (-J 0-0 is "illegal"), so this file has one real line
+# and needs -J 0-1 - index 1 fails cleanly in <1s ("no suite line for index 1"), no GPU cost.
+#
+# Submit once per seed (walltime is now 24h, raised after this exact algorithm only reached
+# ~30% of 1M steps in the original 8h):
+#   GYM_ENV=Ant-v5 SEED=0  TOTAL_STEPS=1000000 SUITE=scripts/gadi/simba_sac_only_suite.txt \
+#       qsub -v GYM_ENV,SEED,TOTAL_STEPS,SUITE -J 0-1 scripts/gadi/train_standalone_suite.pbs
+#   GYM_ENV=Ant-v5 SEED=1  TOTAL_STEPS=1000000 SUITE=scripts/gadi/simba_sac_only_suite.txt \
+#       qsub -v GYM_ENV,SEED,TOTAL_STEPS,SUITE -J 0-1 scripts/gadi/train_standalone_suite.pbs
+#   GYM_ENV=Ant-v5 SEED=42 TOTAL_STEPS=1000000 SUITE=scripts/gadi/simba_sac_only_suite.txt \
+#       qsub -v GYM_ENV,SEED,TOTAL_STEPS,SUITE -J 0-1 scripts/gadi/train_standalone_suite.pbs
+standalone/simba_sac.py
