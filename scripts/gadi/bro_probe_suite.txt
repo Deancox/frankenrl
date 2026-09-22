@@ -1,0 +1,16 @@
+# Single-algorithm probe suite for BRO alone, after its first full-scale attempt ran the
+# entire 8h walltime on real GPU work (18% util) and was killed with zero recovered output
+# (PYTHONUNBUFFERED fix now prevents that specific data loss, but says nothing about whether
+# BRO can actually reach 1M steps in 8h at its default size - critic width 512, replay ratio
+# 10 makes it the heaviest algorithm in this suite by a wide margin).
+#
+# PBS Pro rejects a single-task array (-J 0-0 is "illegal"), so this file has one real line
+# and needs -J 0-1 - index 1 fails cleanly in <1s ("no suite line for index 1"), no GPU cost.
+#
+# Submit a short, cheap probe first (measures real steps/sec on this GPU, not a full run):
+#   GYM_ENV=Ant-v5 SEED=0 TOTAL_STEPS=50000 SUITE=scripts/gadi/bro_probe_suite.txt \
+#       qsub -v GYM_ENV,SEED,TOTAL_STEPS,SUITE -J 0-1 scripts/gadi/train_standalone_suite.pbs
+# Once you have a real sps figure from that, either raise #PBS -l walltime in
+# train_standalone_suite.pbs for a BRO-only resubmission, or cap BRO's own --total-steps via
+# the extra-flags column below (already has --updates-per-step 10 from compare_suite.txt).
+standalone/bro.py --updates-per-step 10
