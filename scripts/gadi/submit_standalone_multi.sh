@@ -11,13 +11,15 @@
 #   SUITE=scripts/gadi/compare_suite.txt ./scripts/gadi/submit_standalone_multi.sh "Ant-v5" "0 1 42"
 #
 # Cost check before you submit: N_envs x N_seeds x N_algorithms(SUITE) = total jobs, each
-# requesting up to 8h walltime x 1 GPU (#PBS -l walltime/ngpus in train_standalone_suite.pbs).
-# Two envs x five seeds x 7 algorithms = 10 job arrays x 7 tasks = 70 jobs, up to ~560
-# GPU-hours of *requested* walltime (actual usage will be less if runs finish early, but this
-# is what gets reserved against your qy44 allocation) - lower TOTAL_STEPS or trim
-# SEEDS/ENVS/SUITE if that's more than you want to burn on a first full-scale run, especially
-# since nothing has been verified at 1M-step scale on Gadi yet (see the smoke test in
-# train_standalone_suite.pbs's header comment).
+# requesting up to 24h walltime x 1 GPU (#PBS -l walltime/ngpus in train_standalone_suite.pbs
+# - raised from the original 8h after SimBa-SAC and BRO both needed more of it than that on
+# the first real run; verify 24h is actually within gpuvolta-exec's own cap before relying on
+# it, since PBS rejects an over-cap request at submission time with no compute spent, but a
+# silently-lower cap you didn't check would still be a surprise). Two envs x five seeds x 7
+# algorithms = 10 job arrays x 7 tasks = 70 jobs, up to ~1680 GPU-hours of *requested*
+# walltime (actual usage will be less if runs finish early, but this is what gets reserved
+# against your qy44 allocation) - lower TOTAL_STEPS or trim SEEDS/ENVS/SUITE if that's more
+# than you want to burn on a first full-scale run.
 set -euo pipefail
 ENVS="${1:-Ant-v5}"
 SEEDS="${2:-0}"

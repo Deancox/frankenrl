@@ -127,11 +127,26 @@ Migration of the FYP "Frankenstein" corpus into one config-driven package.
    (which only drives the framework's YAML-config agents), since TD7/SimBa-SAC/SimBa-TD3
    have no framework port. One job-array task per `standalone/` script, CLI flags only (no
    config system). Defaults to `Ant-v5`, 1M steps, seed 0 — override via `ENV`/`TOTAL_STEPS`/
-   `SEED` env vars or `scripts/gadi/submit_standalone.sh "<seeds>"`. **Not yet run on Gadi
-   itself** — the proof pass above confirms correctness locally (small nets, 3k steps, CPU);
-   real throughput/walltime at full BRO/TD7 default sizes (critic width 512, BRO replay
-   ratio 10) on Gadi's GPU is unmeasured. If 8h walltime proves tight for BRO/TD7 at 1M
-   steps, either raise `#PBS -l walltime` or lower `TOTAL_STEPS` per submission.
+   `SEED` env vars or `scripts/gadi/submit_standalone.sh "<seeds>"`.
+   **Update (2026-09-22):** run on real Gadi GPU hardware since. First 3 submissions each
+   failed a different way — `$ENV` collides with a POSIX-shell-reserved variable Gadi's own
+   Modules system uses (renamed to `GYM_ENV`), `uv` wasn't on `PATH` in the batch-job shell,
+   and `uv run` (no `--no-sync`) tried to rebuild `frankenrl` from PyPI with no compute-node
+   internet — all fixed and documented in `train_standalone_suite.pbs`'s header and the
+   vault's `NCI Gadi uses PBS Pro not SLURM` note. 4th submission (`compare_suite.txt`, 3
+   seeds, Ant-v5, 1M steps) produced real results for SAC/TD3/PPO/TD7 (all completed) and a
+   partial curve for SimBa-SAC (killed at ~30% by the then-8h walltime cap); BRO ran the
+   full 8h on real GPU work but its `.log` came out at 0 bytes — Python block-buffers stdout
+   when piped, and a walltime `SIGKILL` never flushes it (fixed: `PYTHONUNBUFFERED=1`). That
+   same real run also surfaced a genuine bug, not an infra one: `simba_sac.py`'s target
+   entropy was `+|A|/2` (positive) instead of the standard SAC convention `-|A|/2`
+   (negative) — traced to taking the SimBa paper's table value literally when the sign had
+   almost certainly been lost in PDF extraction; fixed, and matches the erratic
+   non-monotonic curve that run produced. Walltime raised 8h → 24h (SimBa-SAC only reached
+   ~30% of 1M steps in 8h, so ~3x should clear it) — verify this is actually within
+   `gpuvolta-exec`'s real cap before relying on it. `scripts/gadi/bro_probe_suite.txt` exists
+   to get a real BRO steps/sec figure before committing another long run to it blind, still
+   pending as of this update.
 
 ## Validation targets (from the FYP results)
 

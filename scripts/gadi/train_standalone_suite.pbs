@@ -39,7 +39,7 @@
 #PBS -l ncpus=12
 #PBS -l ngpus=1
 #PBS -l mem=48GB
-#PBS -l walltime=8:00:00
+#PBS -l walltime=24:00:00
 #PBS -l wd
 #PBS -P qy44
 #PBS -l storage=gdata/qy44+scratch/qy44
