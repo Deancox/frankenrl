@@ -305,7 +305,11 @@ class SimbaSAC:
 
         self.autotune = not args.no_autotune
         if self.autotune:
-            self.target_entropy = float(action_dim) / 2.0  # paper's table value, |A|/2 - see module docstring
+            # paper's table prints "|A|/2" with the sign lost to PDF extraction (flagged as
+            # unconfirmed in the research report); standard SAC convention (every other
+            # script here) is NEGATIVE, so apply that sign to the paper's stated magnitude
+            # rather than taking the printed value literally - see module docstring/wiki doc.
+            self.target_entropy = -float(action_dim) / 2.0
             self.log_alpha = torch.zeros(1, requires_grad=True, device=device)
             with torch.no_grad():
                 self.log_alpha.fill_(math.log(1e-2))  # paper's initial temperature
