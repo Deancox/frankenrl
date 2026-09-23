@@ -41,6 +41,13 @@ uv run python standalone/bro.py --env Pendulum-v1 --updates-per-step 10
 `--total-steps` small (a few hundred) with small `--hidden`/`--critic-width` for a fast
 crash/NaN check rather than a real training run - see `tests/test_standalone_smoke.py`.
 
+`bro.py` checkpoints itself periodically (`--checkpoint-every`, default 25000 steps) to
+`--checkpoint-dir` and auto-resumes from there if restarted with the same env/seed - useful
+since it's the slowest script here and the one most likely to outlive a single PBS walltime
+window. Model + optimizer state only, not the replay buffer (a brief refill before learning
+resumes is a fine trade for not doubling every checkpoint's disk cost). Pass `--no-checkpoint`
+to disable. The other scripts don't have this yet.
+
 ## Untuned hyperparameters
 
 BRO's `--optimism-coef`, `--kl-coef`, `--weight-decay`, and `--reset-schedule` defaults are
