@@ -51,6 +51,7 @@ COMMON_ARGV = [
                 "--n-quantiles", "4",
                 "--updates-per-step", "1",
                 "--reset-schedule", "150",
+                "--no-checkpoint",
             ],
         ),
         (

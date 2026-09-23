@@ -24,6 +24,16 @@ actors share the same tanh/action_scale transform, which cancels in the log-rati
 `optimism_coef`, `kl_coef`, `weight_decay`, and the exact quantile-loss form are this
 codebase's own picks, not confirmed literature values - see the wiki doc's ambiguity notes.
 
+Checkpointing: every `--checkpoint-every` steps (and once more at the end), model + optimizer
+state is saved to `--checkpoint-dir` (default `checkpoints/bro_<env>_s<seed>.pt`, atomic
+write via a temp-file rename so a kill mid-save can't corrupt it). If that file already exists
+when the script starts, it resumes from it automatically - no separate `--resume` flag needed.
+The replay buffer itself is NOT saved (large, and a brief refill before learning resumes is a
+fine trade for not doubling every checkpoint's disk cost) - this is a
+not-lose-everything-to-a-walltime-kill feature, not bit-exact reproducibility. Pass
+`--no-checkpoint` to disable entirely (e.g. for the short probe runs used to measure
+throughput, where there's nothing worth resuming).
+
 Usage:
     uv run python standalone/bro.py --env Pendulum-v1 --seed 0 --total-steps 60000
 """
@@ -35,6 +45,7 @@ import copy
 import math
 import random
 import time
+from pathlib import Path
 
 import gymnasium as gym
 import numpy as np
@@ -74,6 +85,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--eval-every", type=int, default=5_000)
     p.add_argument("--eval-episodes", type=int, default=5)
     p.add_argument("--device", default="auto")
+    p.add_argument("--checkpoint-dir", default="checkpoints", help="periodic save location; auto-resumes from here if a matching checkpoint exists")
+    p.add_argument("--checkpoint-every", type=int, default=25_000, help="env steps between checkpoint saves")
+    p.add_argument("--no-checkpoint", action="store_true", help="disable checkpointing entirely")
     return p.parse_args()
 
 
@@ -398,6 +412,40 @@ class BRO:
             "kl/pi_p_pi_o": float(kl.mean().item()),
         }
 
+    # --------------------------------------------------------------- checkpoint
+    def state_dict(self) -> dict:
+        """Model/optimizer state only - NOT the replay buffer (large, and refilling it via a
+        brief warmup on resume is a fine trade for not doubling every checkpoint's disk cost;
+        this is a not-lose-everything-to-a-walltime-kill feature, not bit-exact reproduction)."""
+        state = {
+            "pi_p": self.pi_p.state_dict(),
+            "pi_o": self.pi_o.state_dict(),
+            "critics": self.critics.state_dict(),
+            "critic_target": self.critic_target.state_dict(),
+            "pi_p_opt": self.pi_p_opt.state_dict(),
+            "pi_o_opt": self.pi_o_opt.state_dict(),
+            "critic_opt": self.critic_opt.state_dict(),
+            "resets_done": sorted(self._resets_done),
+        }
+        if self.autotune:
+            state["log_alpha"] = self.log_alpha.detach().cpu()
+            state["alpha_opt"] = self.alpha_opt.state_dict()
+        return state
+
+    def load_state_dict(self, state: dict) -> None:
+        self.pi_p.load_state_dict(state["pi_p"])
+        self.pi_o.load_state_dict(state["pi_o"])
+        self.critics.load_state_dict(state["critics"])
+        self.critic_target.load_state_dict(state["critic_target"])
+        self.pi_p_opt.load_state_dict(state["pi_p_opt"])
+        self.pi_o_opt.load_state_dict(state["pi_o_opt"])
+        self.critic_opt.load_state_dict(state["critic_opt"])
+        self._resets_done = set(state.get("resets_done", []))
+        if self.autotune and "log_alpha" in state:
+            with torch.no_grad():
+                self.log_alpha.copy_(state["log_alpha"].to(self.device))
+            self.alpha_opt.load_state_dict(state["alpha_opt"])
+
 
 # --------------------------------------------------------------------------- train loop
 
@@ -413,6 +461,17 @@ def evaluate(agent: BRO, env_id: str, episodes: int, seed: int) -> float:
             total += r
     env.close()
     return total / episodes
+
+
+def _checkpoint_path(args: argparse.Namespace) -> Path:
+    return Path(args.checkpoint_dir) / f"bro_{args.env}_s{args.seed}.pt"
+
+
+def _save_checkpoint(path: Path, agent: "BRO", step: int, episode: int) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".pt.tmp")
+    torch.save({"agent": agent.state_dict(), "step": step, "episode": episode}, tmp)
+    tmp.replace(path)  # atomic on POSIX and Windows - never leaves a half-written checkpoint
 
 
 def train(args: argparse.Namespace) -> None:
@@ -432,6 +491,22 @@ def train(args: argparse.Namespace) -> None:
 
     step = 0
     episode = 0
+    ckpt_path = _checkpoint_path(args)
+    if not args.no_checkpoint and ckpt_path.exists():
+        try:
+            ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
+            agent.load_state_dict(ckpt["agent"])
+            step, episode = ckpt["step"], ckpt["episode"]
+            print(f"[bro] resumed from {ckpt_path} at step {step} (replay buffer restarts "
+                  f"empty - a brief refill happens before learning resumes, see module docstring)")
+        except (RuntimeError, KeyError) as e:
+            # most likely a stale checkpoint from a differently-sized run (checkpoint path is
+            # keyed on env+seed only, not architecture) - start fresh rather than crash, since
+            # losing an accidentally-mismatched checkpoint is much cheaper than losing this run.
+            print(f"[bro] WARNING: found {ckpt_path} but couldn't load it ({e!r}) - "
+                  f"starting fresh instead (probably a checkpoint from a different network size)")
+            step, episode = 0, 0
+
     t0 = time.time()
     state, _ = env.reset(seed=args.seed)
     ep_reward = 0.0
@@ -468,7 +543,13 @@ def train(args: argparse.Namespace) -> None:
             sps = step / max(time.time() - t0, 1e-9)
             print(f"[bro] step {step:>8} | eval {ev:8.1f} | {sps:6.0f} sps" + (f" | critic {metrics.get('loss/critic', float('nan')):.3f}" if metrics else ""))
 
+        if not args.no_checkpoint and step % args.checkpoint_every == 0:
+            _save_checkpoint(ckpt_path, agent, step, episode)
+            print(f"[bro] step {step:>8} | checkpoint saved -> {ckpt_path}")
+
     env.close()
+    if not args.no_checkpoint:
+        _save_checkpoint(ckpt_path, agent, step, episode)
     print(f"[bro] done: {episode} episodes, {step} steps, {time.time() - t0:.0f}s")
 
 

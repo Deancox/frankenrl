@@ -35,3 +35,6 @@ wandb/
 *.o[0-9]*
 *.e[0-9]*
 
+# pulled-back Gadi run logs + local analysis scratch (scp destination, not source)
+gadi-results/
+
